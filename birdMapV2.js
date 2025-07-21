@@ -12,6 +12,18 @@ const HIGHLIGHT_COLOR = '#A35F00';
 const ENABLE_FULL_MATCH = false; // 控制是否在整页匹配所有鸟种
 const ENABLE_PARTIAL_MATCH = true; // 控制是否仅在特定区域匹配
 
+const markedSet = new WeakSet(); // ✅ 缓存机制：已处理元素集合
+
+const style = document.createElement('style');
+style.textContent = `
+  .unseen-bird,
+  .unseen-bird * {
+    color: #A35F00 !important;
+    text-decoration: none !important;
+  }
+`;
+document.head.appendChild(style);
+
 function saveSpeciesList(speciesList) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(speciesList));
 }
@@ -64,17 +76,13 @@ function getRelevantElements() {
         const nodes = document.querySelectorAll('.Species-common');
         //console.log(`[eBird] tripreport 页面匹配元素数量: ${nodes.length}`);
         return nodes;
-    } else if (url.includes('/hotspot/')) {
+    } else if (url.includes('/hotspot/') || url.includes('/region/')) {
         const nodes = document.querySelectorAll('.Species-common');
         //console.log(`[eBird] hotspot 页面 .Species-common 匹配元素数量: ${nodes.length}!!!!`);
         return nodes;
-        const heading = Array.from(document.querySelectorAll('h2, h3')).find(h => h.textContent.includes('New Species'));
-    } else if (url.includes('/species/')) {
-        const nodes = [
-            ...document.querySelectorAll('.Hero-content .Heading-main'),
-            ...document.querySelectorAll('.RelatedSpecies .Heading--h6 a')
-        ];
-        //console.log(`[eBird] species 页面匹配元素数量: ${nodes.length}`);
+    } else if (url.includes('/targets')) {
+        const nodes = document.querySelectorAll('.SpecimenHeader-joined');
+        //console.log(`[eBird] hotspot 页面 .Species-common 匹配元素数量: ${nodes.length}!!!!`);
         return nodes;
     }
 
@@ -102,26 +110,26 @@ function highlightUnseenSpecies() {
     console.log(`[eBird] 最终处理元素数量: ${targets.length}`);
 
     targets.forEach(el => {
+        if (markedSet.has(el)) return; // ✅ 避免重复处理
+
         const rawText = el.textContent.trim();
         const cleanName = extractCleanName(rawText);
 
         if (!seenBirds.has(cleanName)) {
-            el.style.color = HIGHLIGHT_COLOR;
+            // el.style.color = HIGHLIGHT_COLOR;
+            el.style.setProperty('color', HIGHLIGHT_COLOR, 'important');
+            // el.classList.add('unseen-bird');
             if (!rawText.includes('*')) {
-                el.textContent += '*';
+                // el.textContent += '*';
             }
             console.log(`[eBird] 未见鸟种标记: ${cleanName}`);
         } else {
             console.log(`[eBird] 已见鸟种跳过: ${cleanName}`);
         }
+
+        markedSet.add(el); // ✅ 加入缓存
     });
 }
-
-/*if (location.href.startsWith('https://ebird.org/lifelist?time=life&r=world')) {
-    window.addEventListener('load', () => {
-        setTimeout(updateSpeciesFromLifelistPage, 2000);
-    });
-}*/
 
 if (location.href.startsWith('https://ebird.org/lifelist?time=life&r=world')) {
     window.addEventListener('load', () => {
@@ -129,7 +137,20 @@ if (location.href.startsWith('https://ebird.org/lifelist?time=life&r=world')) {
     });
 } else {
     window.addEventListener('load', () => {
-        setTimeout(highlightUnseenSpecies, 2000);
+        setTimeout(() => {
+            highlightUnseenSpecies();
+
+            // ✅ 启用 DOM 监听，处理异步内容加载
+            const observer = new MutationObserver(() => {
+                console.log('[eBird] DOM 变化触发重新标记');
+                highlightUnseenSpecies();
+            });
+
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        }, 4000);
     });
 }
 
