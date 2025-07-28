@@ -33,36 +33,36 @@ function loadSpeciesList() {
     return data ? JSON.parse(data) : [];
 }
 
-    function updateSpeciesFromLifelistPage() {
-        const existing = loadSpeciesList();
-        const speciesSet = new Set(existing.map(s => s.commonName));
-        const updatedList = [...existing];
-        let newCount = 0;
+function updateSpeciesFromLifelistPage() {
+    const existing = loadSpeciesList();
+    const speciesSet = new Set(existing.map(s => s.commonName));
+    const updatedList = [...existing];
+    let newCount = 0;
 
-        document.querySelectorAll('.Observation').forEach(obs => {
-            const commonNameEl = obs.querySelector('.Heading-main');
-            const latinNameEl = obs.querySelector('.Heading-sub--sci');
+    document.querySelectorAll('.Observation').forEach(obs => {
+        const commonNameEl = obs.querySelector('.Heading-main');
+        const latinNameEl = obs.querySelector('.Heading-sub--sci');
 
-            if (!commonNameEl) return;
+        if (!commonNameEl) return;
 
-            const commonNameRaw = commonNameEl.textContent.trim();
-            const commonName = commonNameRaw.replace(/\(.*?\)\*?$/, '').trim();
-            const latinName = latinNameEl?.textContent.trim() || '';
+        const commonNameRaw = commonNameEl.textContent.trim();
+        const commonName = commonNameRaw.replace(/\(.*?\)\*?$/, '').trim();
+        const latinName = latinNameEl?.textContent.trim() || '';
 
-            if (!speciesSet.has(commonName)) {
-                updatedList.push({ commonName, latinName });
-                speciesSet.add(commonName);
-                newCount++;
-            }
-        });
-
-        if (newCount > 0) {
-            saveSpeciesList(updatedList);
-            alert(`已成功更新 ${newCount} 个新鸟种至你的生涯清单中！`);
+        if (!speciesSet.has(commonName)) {
+            updatedList.push({ commonName, latinName });
+            speciesSet.add(commonName);
+            newCount++;
         }
+    });
 
-        console.log(`[eBird Species Tracker] Total species in list: ${updatedList.length}`);
+    if (newCount > 0) {
+        saveSpeciesList(updatedList);
+        alert(`已成功更新 ${newCount} 个新鸟种至你的生涯清单中！`);
     }
+
+    console.log(`[eBird Species Tracker] Total species in list: ${updatedList.length}`);
+}
 
 function getRelevantElements() {
     const url = location.href;
@@ -11176,7 +11176,7 @@ const birdMap = {
                 return match;
             });
             if (newHtml !== oldText) {
-                 n.nodeValue = newHtml
+                n.nodeValue = newHtml
                 /*const span = document.createElement('span');
                 span.innerHTML = newHtml;
                 parent.replaceChild(span, n);*/
@@ -11185,6 +11185,7 @@ const birdMap = {
     }
 
     walkAndReplace(document.body);
+    highlightUnseenSpecies();
 
     const observer = new MutationObserver((mutations) => {
         for (let m of mutations) {
