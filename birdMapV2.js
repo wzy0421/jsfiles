@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird 添加中文鸟名
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  在 eBird 网站上将鸟名改为“英文名(中文名)”格式
 // @match        https://ebird.org/*
 // @grant        none
@@ -11067,13 +11067,17 @@ function getRelevantElements() {
         //console.log(`[eBird] hotspot 页面 .Species-common 匹配元素数量: ${nodes.length}!!!!`);
         return nodes;
     } else if (url.includes('/targets')) {
-        const nodes = document.querySelectorAll('h5.SpecimenHeader-joined a');
+        const nodes = document.querySelectorAll('.SpecimenHeader-joined');
         //console.log(`[eBird] hotspot 页面 .Species-common 匹配元素数量: ${nodes.length}!!!!`);
         return nodes;
-    }
-    else if (url.includes('/barchart')) {
-        const nodes = document.querySelectorAll('div.SpeciesName a');
-        //console.log(`[eBird] barchart 页面 .SpeciesName 匹配元素数量: ${nodes.length}!!!!`);
+    } else if (url.includes('/printableList')) {
+        const nodes = document.querySelectorAll('.subitem');
+        return nodes;
+    } else if (url.includes('/barchart')) {
+        const nodes = document.querySelectorAll('.SpeciesName');
+        return nodes;
+    } else if (url.includes('/alert')) {
+        const nodes = document.querySelectorAll('.Observation-species .Heading-main');
         return nodes;
     }
 
@@ -11082,7 +11086,39 @@ function getRelevantElements() {
 }
 
 function extractCleanName(text) {
-    return text.replace(/\(.*?\)\*?$/, '').replace(/\*/g, '').trim();
+    // return text.replace(/\(.*?\)\*?$/, '').replace(/\*/g, '').trim();
+    // return text.replace(/\s*\(.*?\).*$/, '').replace(/\*/g, '').trim();
+    return text
+        .replace(/\s*\([^)]*\)/g, '')                     // 去掉所有(...)块（中文名/拉丁名都覆盖）
+        .replace(/\*/g, '')                               // 去掉星号
+        .replace(/\s+[A-Z][a-z]+(?:\s+[a-z\-]+){1,2}\s*$/, '') // 去掉末尾拉丁名（属+种(+亚种)）
+        .trim();
+}
+
+function ensureHighlightCSS() {
+    if (document.getElementById('ebird-highlights')) return;
+
+    const style = document.createElement('style');
+    style.id = 'ebird-highlights';
+    style.textContent = `
+/* 祖先打标，所有后代全部强制变色 */
+[data-ebird-unseen],
+[data-ebird-unseen] *,
+[data-ebird-unseen] a,
+[data-ebird-unseen] a:link,
+[data-ebird-unseen] a:visited {
+  color: var(--ebird-highlight, #ff2d55) !important;
+  -webkit-text-fill-color: var(--ebird-highlight, #ff2d55) !important; /* WebKit 有时用这个覆盖文字颜色 */
+}
+
+/* 如果页面是 SVG 文本 */
+[data-ebird-unseen] svg text,
+[data-ebird-unseen] svg tspan {
+  fill: var(--ebird-highlight, #ff2d55) !important;
+}
+`;
+    // 把样式插到 <head> 最后，尽量压过站点后插入的全局样式
+    (document.head || document.documentElement).appendChild(style);
 }
 
 function highlightUnseenSpecies() {
@@ -11104,22 +11140,22 @@ function highlightUnseenSpecies() {
         if (markedSet.has(el)) return; // ✅ 避免重复处理
 
         const rawText = el.textContent.trim();
-        //const rawText = el.childNodes[0].textContent.trim();
         const cleanName = extractCleanName(rawText);
-
+        // console.log(`[eBird] 处理元素: "${rawText}" => "${cleanName}"`);
         if (!seenBirds.has(cleanName)) {
-            // el.style.color = HIGHLIGHT_COLOR;
-            
-            // el.classList.add('unseen-bird');
+
+            // el.style.setProperty('color', HIGHLIGHT_COLOR, 'important');
+            ensureHighlightCSS(); // 保证样式已注入（只会执行一次）
+
+            // 给元素打标，并把颜色传给 CSS 变量
+            el.setAttribute('data-ebird-unseen', '1');
+            el.style.setProperty('--ebird-highlight', HIGHLIGHT_COLOR);
             if (!rawText.includes('*')) {
                 // el.textContent += '*';
             }
-            else {
-                el.style.setProperty('color', HIGHLIGHT_COLOR, 'important');
-            }
-            console.log(`[eBird] 未见鸟种标记: ${cleanName}`);
+            // console.log(`[eBird] 未见鸟种标记: ${cleanName}`);
         } else {
-            console.log(`[eBird] 已见鸟种跳过: ${cleanName}`);
+            // console.log(`[eBird] 已见鸟种跳过: ${cleanName}`);
         }
 
         markedSet.add(el); // ✅ 加入缓存
