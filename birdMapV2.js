@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird 添加中文鸟名
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.1.1
 // @description  在 eBird 网站上将鸟名改为“英文名(中文名)”格式
 // @match        https://ebird.org/*
 // @grant        none
@@ -11141,6 +11141,13 @@ function highlightUnseenSpecies() {
 
         const rawText = el.textContent.trim();
         const cleanName = extractCleanName(rawText);
+
+        // remove spuh(bird names end with sp.) and hybrids(with X in name) and slash(with / in name)
+        if (cleanName.endsWith(' sp.') || cleanName.includes(' x ') || cleanName.includes(' X ') || cleanName.includes('/')) {
+            // console.log(`[eBird] 跳过 sp. 或 杂交种 或 斜杠: "${rawText}" => "${cleanName}"`);
+            markedSet.add(el); // ✅ 加入缓存
+            return;
+        }
         // console.log(`[eBird] 处理元素: "${rawText}" => "${cleanName}"`);
         if (!seenBirds.has(cleanName)) {
 
