@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird 添加中文鸟名
 // @namespace    http://tampermonkey.net/
-// @version      1.1.1
+// @version      1.1.2
 // @description  在 eBird 网站上将鸟名改为“英文名(中文名)”格式
 // @match        https://ebird.org/*
 // @grant        none
@@ -11158,6 +11158,7 @@ function highlightUnseenSpecies() {
             el.setAttribute('data-ebird-unseen', '1');
             el.style.setProperty('--ebird-highlight', HIGHLIGHT_COLOR);
             if (!rawText.includes('*')) {
+                el.appendChild(document.createTextNode('*'));
                 // el.textContent += '*';
             }
             // console.log(`[eBird] 未见鸟种标记: ${cleanName}`);
@@ -11225,7 +11226,8 @@ const seenBirds = new Set(loadSpeciesList().map(s => s.commonName));
             const newText = oldText.replace(pattern, match => {
                 if (!birdMap[match]) return match;
                 const seen = seenBirds.has(match);
-                return `${birdMap[match]}${!seen ? '*' : ''}`;
+                // return `${birdMap[match]}${!seen ? '*' : ''}`;
+                return `${birdMap[match]}`;
             });
 
             if (newText !== oldText) {
