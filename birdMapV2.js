@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eBird 添加中文鸟名
 // @namespace    http://tampermonkey.net/
-// @version      1.1.2
+// @version      1.1.3
 // @description  在 eBird 网站上将鸟名改为“英文名(中文名)”格式
 // @match        https://ebird.org/*
 // @grant        none
@@ -11020,31 +11020,51 @@ function loadSpeciesList() {
 }
 
 function updateSpeciesFromLifelistPage() {
-    const existing = loadSpeciesList();
-    const speciesSet = new Set(existing.map(s => s.commonName));
-    const updatedList = [...existing];
-    let newCount = 0;
+    const existing = loadSpeciesList(); // [{ commonName, latinName }, ...]
+    const existingSet = new Set(existing.map(s => s.commonName));
 
+    // 1) 从页面收集当前物种（去重）
+    const pageMap = new Map(); // commonName -> latinName
     document.querySelectorAll('.Observation').forEach(obs => {
         const commonNameEl = obs.querySelector('.Heading-main');
-        const latinNameEl = obs.querySelector('.Heading-sub--sci');
-
+        const latinNameEl  = obs.querySelector('.Heading-sub--sci');
         if (!commonNameEl) return;
 
         const commonNameRaw = commonNameEl.textContent.trim();
         const commonName = commonNameRaw.replace(/\(.*?\)\*?$/, '').trim();
-        const latinName = latinNameEl?.textContent.trim() || '';
+        const latinName = (latinNameEl?.textContent.trim() || '');
 
-        if (!speciesSet.has(commonName)) {
-            updatedList.push({ commonName, latinName });
-            speciesSet.add(commonName);
-            newCount++;
+        // 避免重复条目；第一次出现为准
+        if (!pageMap.has(commonName)) {
+            pageMap.set(commonName, latinName);
         }
     });
 
-    if (newCount > 0) {
-        saveSpeciesList(updatedList);
-        alert(`已成功更新 ${newCount} 个新鸟种至你的生涯清单中！`);
+    // 2) 计算新增与删除
+    const pageSet = new Set(pageMap.keys());
+    let added = 0, removed = 0;
+
+    for (const name of pageSet) {
+        if (!existingSet.has(name)) added++;
+    }
+    for (const name of existingSet) {
+        if (!pageSet.has(name)) removed++;
+    }
+
+    // 3) 以页面为准重建并保存（可按名称排序，便于查看）
+    const updatedList = Array.from(pageMap, ([commonName, latinName]) => ({ commonName, latinName }))
+        .sort((a, b) => a.commonName.localeCompare(b.commonName));
+
+    saveSpeciesList(updatedList);
+
+    // 4) 反馈
+    if (added > 0 || removed > 0) {
+        const parts = [];
+        if (added) parts.push(`新增 ${added}`);
+        if (removed) parts.push(`删除 ${removed}`);
+        alert(`已与当前生涯清单对齐：${parts.join('，')} 个物种。`);
+    } else {
+        // alert('已与当前生涯清单对齐：无变更。');
     }
 
     console.log(`[eBird Species Tracker] Total species in list: ${updatedList.length}`);
